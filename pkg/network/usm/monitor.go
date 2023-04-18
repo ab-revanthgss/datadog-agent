@@ -311,6 +311,10 @@ func (m *Monitor) Stop() {
 	if m.kafkaEnabled {
 		m.kafkaConsumer.Stop()
 	}
+	m.httpStatkeeper.Close()
+	if m.http2Statkeeper != nil {
+		m.http2Statkeeper.Close()
+	}
 	m.closeFilterFn()
 }
 
