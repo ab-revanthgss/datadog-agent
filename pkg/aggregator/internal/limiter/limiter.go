@@ -6,6 +6,7 @@
 package limiter
 
 import (
+	"math"
 	"strings"
 
 	"github.com/DataDog/datadog-agent/pkg/metrics"
@@ -15,6 +16,7 @@ import (
 type entry struct {
 	current  int // number of contexts currently in aggregator
 	rejected int // number of rejected samples
+	lastSeen int // epoch count when seen last
 	tags     []string
 }
 
@@ -23,13 +25,20 @@ type entry struct {
 //
 // Not thread safe.
 type Limiter struct {
-	key   string
-	tags  []string
-	limit int
-	usage map[string]*entry
+	key     string
+	tags    []string
+	limit   int // current per-origin limit (dynamic if global limit is set)
+	global  int // global limit
+	current int // sum(usage[*].current)
+	usage   map[string]*entry
+
+	// epoch, maxAge and lastSeen ensure eventual removal of entries that created an entry, but were
+	// never able to create contexts due to the global limit.
+	epoch  int
+	maxAge int
 }
 
-// New returns a new instance of limiter.
+// New returns a limiter with a per-key limit.
 //
 // If limit is zero or less the limiter is disabled.
 func New(limit int, key string, tags []string) *Limiter {
@@ -37,6 +46,20 @@ func New(limit int, key string, tags []string) *Limiter {
 		return nil
 	}
 
+	return newLimiter(limit, math.MaxInt, 0, key, tags)
+}
+
+// NewGlobal returns a limiter with a global per-instance limit, that
+// will be equally distributed between origins.
+func NewGlobal(global int, maxAge int, key string, tags []string) *Limiter {
+	if global <= 0 || global == math.MaxInt {
+		return nil
+	}
+
+	return newLimiter(0, global, maxAge, key, tags)
+}
+
+func newLimiter(limit, global int, maxAge int, key string, tags []string) *Limiter {
 	if !strings.HasSuffix(key, ":") {
 		key += ":"
 	}
@@ -55,10 +78,12 @@ func New(limit int, key string, tags []string) *Limiter {
 	}
 
 	return &Limiter{
-		key:   key,
-		tags:  tags,
-		limit: limit,
-		usage: map[string]*entry{},
+		key:    key,
+		tags:   tags,
+		limit:  limit,
+		global: global,
+		usage:  map[string]*entry{},
+		maxAge: maxAge,
 	}
 }
 
@@ -85,6 +110,12 @@ func (l *Limiter) extractTags(src []string) []string {
 	return dst
 }
 
+func (l *Limiter) updateLimit() {
+	if l.global < math.MaxInt && len(l.usage) > 0 {
+		l.limit = l.global / len(l.usage)
+	}
+}
+
 // Track is called for each new context. Returns true if the sample should be accepted, false
 // otherwise.
 func (l *Limiter) Track(tags []string) bool {
@@ -100,13 +131,17 @@ func (l *Limiter) Track(tags []string) bool {
 			tags: l.extractTags(tags),
 		}
 		l.usage[id] = e
+		l.updateLimit()
 	}
 
-	if e.current >= l.limit {
+	e.lastSeen = l.epoch
+
+	if e.current >= l.limit || l.current >= l.global {
 		e.rejected++
 		return false
 	}
 
+	l.current++
 	e.current++
 	return true
 }
@@ -120,9 +155,43 @@ func (l *Limiter) Remove(tags []string) {
 	id := l.identify(tags)
 
 	if e := l.usage[id]; e != nil {
+		l.current--
 		e.current--
 		if e.current <= 0 {
 			delete(l.usage, id)
+			l.updateLimit()
+		}
+	}
+}
+
+// IsOverLimit returns true if the context sender is over the limit and the context should be
+// dropped.
+func (l *Limiter) IsOverLimit(tags []string) bool {
+	if l == nil {
+		return false
+	}
+
+	if e := l.usage[l.identify(tags)]; e != nil {
+		return e.current > l.limit
+	}
+
+	return false
+}
+
+// ExpireEntries is called once per flush cycle to do internal bookkeeping and cleanups.m
+func (l *Limiter) ExpireEntries() {
+	if l == nil {
+		return
+	}
+
+	if l.maxAge >= 0 {
+		l.epoch++
+		tooOld := l.epoch - l.maxAge
+		for id, e := range l.usage {
+			if e.current == 0 && e.lastSeen < tooOld {
+				delete(l.usage, id)
+				l.updateLimit()
+			}
 		}
 	}
 }
@@ -135,6 +204,24 @@ func (l *Limiter) SendTelemetry(timestamp float64, series metrics.SerieSink, hos
 
 	droppedTags := append([]string{}, constTags...)
 	droppedTags = append(droppedTags, "reason:too_many_contexts")
+
+	series.Append(&metrics.Serie{
+		Name:   "datadog.agent.aggregator.dogstatsd_context_limiter.num_origins",
+		Host:   hostname,
+		Tags:   tagset.NewCompositeTags(constTags, nil),
+		MType:  metrics.APIGaugeType,
+		Points: []metrics.Point{{Ts: timestamp, Value: float64(len(l.usage))}},
+	})
+
+	if l.global < math.MaxInt {
+		series.Append(&metrics.Serie{
+			Name:   "datadog.agent.aggregator.dogstatsd_context_limiter.global_limit",
+			Host:   hostname,
+			Tags:   tagset.NewCompositeTags(constTags, nil),
+			MType:  metrics.APIGaugeType,
+			Points: []metrics.Point{{Ts: timestamp, Value: float64(l.global)}},
+		})
+	}
 
 	for _, e := range l.usage {
 		series.Append(&metrics.Serie{
