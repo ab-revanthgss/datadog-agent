@@ -300,7 +300,9 @@ func (m *Monitor) Stop() {
 		return
 	}
 
-	m.processMonitor.Stop()
+	if m.httpTLSEnabled {
+		m.processMonitor.Stop()
+	}
 	m.ebpfProgram.Close()
 
 	m.httpConsumer.Stop()

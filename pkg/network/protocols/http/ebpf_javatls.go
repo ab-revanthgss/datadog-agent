@@ -153,7 +153,7 @@ func (p *JavaTLSProgram) GetAllUndefinedProbes() []manager.ProbeIdentificationPa
 // /                 match  | not match
 // allowRegex only    true  | false
 // blockRegex only    false | true
-func isAttachmentAllowed(pid uint32) bool {
+func isAttachmentAllowed(pid int) bool {
 	allowIsSet := javaAgentAllowRegex != nil
 	blockIsSet := javaAgentBlockRegex != nil
 	// filter is disabled (default configuration)
@@ -186,7 +186,7 @@ func isAttachmentAllowed(pid uint32) bool {
 	return true
 }
 
-func newJavaProcess(pid uint32) {
+func newJavaProcess(pid int) {
 	if !isAttachmentAllowed(pid) {
 		log.Debugf("java pid %d attachment rejected", pid)
 		return
@@ -200,18 +200,17 @@ func newJavaProcess(pid uint32) {
 		allArgs = append(allArgs, "dd.trace.debug=true")
 	}
 	args := strings.Join(allArgs, ",")
-	if err := java.InjectAgent(int(pid), javaUSMAgentJarPath, args); err != nil {
+	if err := java.InjectAgent(pid, javaUSMAgentJarPath, args); err != nil {
 		log.Error(err)
 	}
 }
 
 func (p *JavaTLSProgram) Start() {
 	var err error
-	p.cleanupExec, err = p.processMonitor.Subscribe(&monitor.ProcessCallback{
-		Event:    monitor.EXEC,
-		Metadata: monitor.NAME,
-		Regex:    regexp.MustCompile("^java$"),
-		Callback: newJavaProcess,
+	p.cleanupExec, err = p.processMonitor.SubscribeExec(&monitor.ProcessCallback{
+		FilterType: monitor.NAME,
+		Regex:      regexp.MustCompile("^java$"),
+		Callback:   newJavaProcess,
 	})
 	if err != nil {
 		log.Errorf("process monitor Subscribe() error: %s", err)

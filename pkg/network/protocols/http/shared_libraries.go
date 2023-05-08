@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/DataDog/gopsutil/process"
@@ -195,10 +196,10 @@ func (w *soWatcher) Start() {
 		log.Errorf("can't initialize process monitor %s", err)
 		return
 	}
-	cleanupExit, err := w.processMonitor.Subscribe(&monitor.ProcessCallback{
-		Event:    monitor.EXIT,
-		Metadata: monitor.ANY,
-		Callback: w.registry.unregister,
+
+	cleanupExit, err := w.processMonitor.SubscribeExit(&monitor.ProcessCallback{
+		FilterType: monitor.ANY,
+		Callback:   w.registry.unregister,
 	})
 	if err != nil {
 		log.Errorf("can't subscribe to process monitor exit event %s", err)
@@ -206,6 +207,8 @@ func (w *soWatcher) Start() {
 	}
 
 	go func() {
+		processSync := time.NewTicker(time.Minute)
+
 		defer cleanupExit()
 		defer w.processMonitor.Stop()
 		// cleanup all uprobes
@@ -213,6 +216,23 @@ func (w *soWatcher) Start() {
 
 		for {
 			select {
+			case <-processSync.C:
+				processSet := make(map[int32]struct{})
+				w.registry.m.RLock()
+				for pid := range w.registry.byPID {
+					processSet[int32(pid)] = struct{}{}
+				}
+				w.registry.m.RUnlock()
+
+				deletedPids := monitor.FindDeletedProcesses(processSet)
+				if len(deletedPids) == 0 {
+					continue
+				}
+				w.registry.m.Lock()
+				for deletedPid := range deletedPids {
+					w.registry.unregister(int(deletedPid))
+				}
+				w.registry.m.Unlock()
 			case event, ok := <-w.loadEvents.DataChannel:
 				if !ok {
 					return
@@ -261,11 +281,17 @@ func (r *soRegistry) cleanup() {
 }
 
 // unregister a pid if exists, unregisterCB will be called if his uniqueProcessesCount == 0
-func (r *soRegistry) unregister(pid uint32) {
+func (r *soRegistry) unregister(pid int) {
+	r.m.RLock()
+	_, found := r.byPID[uint32(pid)]
+	r.m.RUnlock()
+	if !found {
+		return
+	}
+
 	r.m.Lock()
 	defer r.m.Unlock()
-
-	paths, found := r.byPID[pid]
+	paths, found := r.byPID[uint32(pid)]
 	if !found {
 		return
 	}
@@ -279,7 +305,7 @@ func (r *soRegistry) unregister(pid uint32) {
 			delete(r.byID, pathID)
 		}
 	}
-	delete(r.byPID, pid)
+	delete(r.byPID, uint32(pid))
 }
 
 // register a ELF library root/libPath as be used by the pid
