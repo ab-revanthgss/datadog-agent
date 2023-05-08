@@ -58,6 +58,7 @@ type ebpfProgram struct {
 	mapCleaner            *ddebpf.MapCleaner
 	tailCallRouter        []manager.TailCallRoute
 	connectionProtocolMap *ebpf.Map
+	tlsConnectionMap      *ebpf.Map
 }
 
 type probeResolver interface {
@@ -101,7 +102,7 @@ var http2TailCall = manager.TailCallRoute{
 	},
 }
 
-func newEBPFProgram(c *config.Config, offsets []manager.ConstantEditor, connectionProtocolMap, sockFD *ebpf.Map, bpfTelemetry *errtelemetry.EBPFTelemetry) (*ebpfProgram, error) {
+func newEBPFProgram(c *config.Config, offsets []manager.ConstantEditor, connectionProtocolMap, tlsConnectionMap, sockFD *ebpf.Map, bpfTelemetry *errtelemetry.EBPFTelemetry) (*ebpfProgram, error) {
 	mgr := &manager.Manager{
 		Maps: []*manager.Map{
 			{Name: httpInFlightMap},
@@ -201,6 +202,7 @@ func newEBPFProgram(c *config.Config, offsets []manager.ConstantEditor, connecti
 		probesResolvers:       subprogramProbesResolvers,
 		tailCallRouter:        tailCalls,
 		connectionProtocolMap: connectionProtocolMap,
+		tlsConnectionMap:      tlsConnectionMap,
 	}
 
 	return program, nil
@@ -339,6 +341,21 @@ func addBoolConst(options *manager.Options, flag bool, name string) {
 	)
 }
 
+func (e *ebpfProgram) rewriteSharedMap(ebpfMap *ebpf.Map, options *manager.Options, name string) {
+	if ebpfMap != nil {
+		if options.MapEditors == nil {
+			options.MapEditors = make(map[string]*ebpf.Map)
+		}
+		options.MapEditors[name] = ebpfMap
+	} else {
+		options.MapSpecEditors[name] = manager.MapSpecEditor{
+			Type:       ebpf.Hash,
+			MaxEntries: uint32(e.cfg.MaxTrackedConnections),
+			EditorFlag: manager.EditMaxEntries,
+		}
+	}
+}
+
 func (e *ebpfProgram) init(buf bytecode.AssetReader, options manager.Options) error {
 	kprobeAttachMethod := manager.AttachKprobeWithPerfEventOpen
 	if e.cfg.AttachKprobesWithKprobeEventsABI {
@@ -372,18 +389,8 @@ func (e *ebpfProgram) init(buf bytecode.AssetReader, options manager.Options) er
 			EditorFlag: manager.EditMaxEntries,
 		},
 	}
-	if e.connectionProtocolMap != nil {
-		if options.MapEditors == nil {
-			options.MapEditors = make(map[string]*ebpf.Map)
-		}
-		options.MapEditors[probes.ConnectionProtocolMap] = e.connectionProtocolMap
-	} else {
-		options.MapSpecEditors[probes.ConnectionProtocolMap] = manager.MapSpecEditor{
-			Type:       ebpf.Hash,
-			MaxEntries: uint32(e.cfg.MaxTrackedConnections),
-			EditorFlag: manager.EditMaxEntries,
-		}
-	}
+	e.rewriteSharedMap(e.connectionProtocolMap, &options, probes.ConnectionProtocolMap)
+	e.rewriteSharedMap(e.tlsConnectionMap, &options, probes.TLSConnectionMap)
 
 	options.TailCallRouter = e.tailCallRouter
 	options.ActivatedProbes = []manager.ProbesSelector{

@@ -842,8 +842,9 @@ func newUSMMonitor(c *config.Config, tracer connection.Tracer, bpfTelemetry *net
 	// Shared with the USM program
 	sockFDMap := tracer.GetMap(probes.SockByPidFDMap)
 	connectionProtocolMap := tracer.GetMap(probes.ConnectionProtocolMap)
+	tlsConnectionMap := tracer.GetMap(probes.TLSConnectionMap)
 
-	monitor, err := usm.NewMonitor(c, offsets, connectionProtocolMap, sockFDMap, bpfTelemetry)
+	monitor, err := usm.NewMonitor(c, offsets, connectionProtocolMap, tlsConnectionMap, sockFDMap, bpfTelemetry)
 	if err != nil {
 		log.Error(err)
 		return nil

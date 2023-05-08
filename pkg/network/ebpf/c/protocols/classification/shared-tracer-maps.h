@@ -7,4 +7,7 @@
 // connection. Assumption: each connection has a single protocol.
 BPF_HASH_MAP(connection_protocol, conn_tuple_t, protocol_t, 0)
 
+// Maps a connection tuple to its classified TLS protocol on socket layer only.
+BPF_HASH_MAP(tls_connection, conn_tuple_t, bool, 0)
+    
 #endif

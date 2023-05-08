@@ -12,6 +12,7 @@
 #include "sock.h"
 #include "protocols/classification/tracer-maps.h"
 #include "protocols/tls/tags-types.h"
+#include "protocols/tls/helpers.h"
 #include "ip.h"
 #include "skb.h"
 
@@ -49,13 +50,6 @@ static __always_inline void update_conn_state(conn_tuple_t *t, conn_stats_ts_t *
     if ((stats->flags & CONN_L_INIT && stats->recv_bytes > 0 && sent_bytes > 0) || (stats->flags & CONN_R_INIT && stats->sent_bytes > 0 && recv_bytes > 0)) {
         stats->flags |= CONN_ASSURED;
     }
-}
-
-static __always_inline bool is_tls_connection_cached(conn_tuple_t *t) {
-    if (bpf_map_lookup_elem(&tls_connection, t) != NULL) {
-        return true;
-    }
-    return false;
 }
 
 // is_tls_connection check if a connection has been classified as TLS protocol in the protocol_classifier_entrypoint(skb)

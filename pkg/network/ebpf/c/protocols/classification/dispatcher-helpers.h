@@ -15,6 +15,7 @@
 #include "protocols/http2/usm-events.h"
 #include "protocols/kafka/kafka-classification.h"
 #include "protocols/kafka/usm-events.h"
+#include "protocols/tls/helpers.h"
 
 // Returns true if the payload represents a TCP termination by checking if the tcp flags contains TCPHDR_FIN or TCPHDR_RST.
 static __always_inline bool is_tcp_termination(skb_info_t *skb_info) {
@@ -81,6 +82,16 @@ static __always_inline void protocol_dispatcher_entrypoint(struct __sk_buff *skb
 
     // We don't process non tcp packets, nor empty tcp packets which are not tcp termination packets, nor ACK only packets.
     if (!is_tcp(&skb_tup) || is_tcp_ack(&skb_info) || (is_payload_empty(skb, &skb_info) && !is_tcp_termination(&skb_info))) {
+        return;
+    }
+
+
+    // Currently TLS is marked by a connection tag rather than the protocol stack,
+    // but as we add support for multiple protocols in the stack, we should revisit this implementation,
+    // and unify it with the following if clause.
+    //
+    // The connection is TLS encrypted, thus we cannot classify the protocol using socket filter.
+    if (is_tls_connection_cached(&skb_tup)) {
         return;
     }
 

@@ -10,6 +10,7 @@ package filter
 
 import (
 	"encoding/binary"
+	"fmt"
 	"runtime"
 
 	"golang.org/x/sys/unix"
@@ -29,6 +30,7 @@ func (h *headlessSocketFilter) Close() {
 	if h.fd == -1 {
 		return
 	}
+	fmt.Printf("========== socket filter close() %d\n", h.fd)
 	unix.Close(h.fd)
 	h.fd = -1
 	runtime.SetFinalizer(h, nil)
