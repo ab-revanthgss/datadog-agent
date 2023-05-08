@@ -496,6 +496,7 @@ static __always_inline void gnutls_goodbye(void *ssl_session) {
     log_debug("gnutls_goodbye: pid=%llu ctx=%llx\n", pid_tgid, ssl_session);
     conn_tuple_t *t = tup_from_ssl_ctx(ssl_session, pid_tgid);
     if (t == NULL) {
+        log_debug("gnutls_goodbye: no ssl ctx pid=%llu ctx=%llx\n", pid_tgid, ssl_session);
         return;
     }
 
@@ -507,6 +508,10 @@ static __always_inline void gnutls_goodbye(void *ssl_session) {
 SEC("uprobe/gnutls_bye")
 int uprobe__gnutls_bye(struct pt_regs *ctx) {
     void *ssl_session = (void *)PT_REGS_PARM1(ctx);
+    #ifdef DEBUG
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    #endif
+        log_debug("gnutls_bye pid=%llu ctx=%llx\n", pid_tgid, ssl_session);
     gnutls_goodbye(ssl_session);
     http_batch_flush(ctx);
     return 0;
@@ -516,6 +521,10 @@ int uprobe__gnutls_bye(struct pt_regs *ctx) {
 SEC("uprobe/gnutls_deinit")
 int uprobe__gnutls_deinit(struct pt_regs *ctx) {
     void *ssl_session = (void *)PT_REGS_PARM1(ctx);
+    #ifdef DEBUG
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    #endif
+        log_debug("gnutls_deinit pid=%llu ctx=%llx\n", pid_tgid, ssl_session);
     gnutls_goodbye(ssl_session);
     http_batch_flush(ctx);
     return 0;

@@ -113,7 +113,7 @@ __maybe_unused static __always_inline void protocol_classifier_entrypoint(struct
     const u32 key = 0;
     char *request_fragment = bpf_map_lookup_elem(&classification_buf, &key);
     if (request_fragment == NULL) {
-        log_debug("could not get classification buffer from map");
+        log_debug("could not get classification buffer from map\n");
         return;
     }
 
@@ -125,6 +125,7 @@ __maybe_unused static __always_inline void protocol_classifier_entrypoint(struct
     // In the context of socket filter, we can classify the protocol if it is plain text,
     // so if the protocol is encrypted, then we have to rely on our uprobes to classify correctly the protocol.
     if (is_tls(request_fragment, final_fragment_size)) {
+        log_debug("tls connection %d %d %d\n", skb_tup.sport, skb_tup.dport, skb_tup.pid);
         const bool t = true;
         bpf_map_update_with_telemetry(tls_connection, &skb_tup, &t, BPF_ANY);
         flip_tuple(&skb_tup);

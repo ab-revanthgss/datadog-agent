@@ -483,6 +483,7 @@ static __always_inline void gnutls_goodbye(void *ssl_session) {
     log_debug("gnutls_goodbye: pid=%llu ctx=%llx\n", pid_tgid, ssl_session);
     conn_tuple_t *t = tup_from_ssl_ctx(ssl_session, pid_tgid);
     if (t == NULL) {
+        log_debug("gnutls_goodbye: no ssl ctx pid=%llu ctx=%llx\n", pid_tgid, ssl_session);
         return;
     }
 

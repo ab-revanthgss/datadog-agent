@@ -82,11 +82,13 @@ static __always_inline conn_tuple_t* tup_from_ssl_ctx(void *ssl_ctx, u64 pid_tgi
         // then followed by the execution of tcp_sendmsg within the same CPU
         // context. This is not necessarily true for all cases (such as when
         // using the async SSL API) but seems to work on most-cases.
+        log_debug("no ssl_sock\n");
         bpf_map_update_with_telemetry(ssl_ctx_by_pid_tgid, &pid_tgid, &ssl_ctx, BPF_ANY);
         return NULL;
     }
 
     if (ssl_sock->tup.sport != 0 && ssl_sock->tup.dport != 0) {
+        log_debug("ssl sock found %d : %d -> %d\n", pid_tgid >> 32, ssl_sock->tup.sport ,ssl_sock->tup.dport );
         return &ssl_sock->tup;
     }
 
@@ -98,11 +100,13 @@ static __always_inline conn_tuple_t* tup_from_ssl_ctx(void *ssl_ctx, u64 pid_tgi
 
     struct sock **sock = bpf_map_lookup_elem(&sock_by_pid_fd, &pid_fd);
     if (sock == NULL)  {
+        log_debug("sock not found %d\n", pid_fd.pid);
         return NULL;
     }
 
     conn_tuple_t t;
     if (!read_conn_tuple(&t, *sock, pid_tgid, CONN_TYPE_TCP)) {
+        log_debug("read conn tuple not found %d\n", pid_fd.pid);
         return NULL;
     }
 

@@ -121,10 +121,20 @@ static __always_inline int http_process(http_transaction_t *http_stack, skb_info
 
     http_transaction_t *http = http_fetch_state(http_stack, packet_type);
     if (!http || http_seen_before(http, skb_info, packet_type)) {
+        log_debug("check !http %d\n", !http);
+        log_debug("check !http %d -> %d\n", http_stack->tup.saddr_l, http_stack->tup.daddr_l);
+        log_debug("check !http %d -> %d\n", http_stack->tup.sport,http_stack->tup.dport);
+        log_debug("check !http %d -> %d\n", http_stack->tup.pid,http_stack->tup.netns);
+        log_debug("check !http meta %d\n", http_stack->tup.metadata);
+        
+        if (http) {
+            log_debug("check !http  %x\n",  http->tcp_seq);
+        }
         return 0;
     }
 
     if (http_should_flush_previous_state(http, packet_type)) {
+        log_debug("http_batch_enqueue() prev last_seen %d\n", http->response_last_seen);
         http_batch_enqueue(http);
         bpf_memcpy(http, http_stack, sizeof(http_transaction_t));
     }
@@ -143,6 +153,7 @@ static __always_inline int http_process(http_transaction_t *http_stack, skb_info
     }
 
     if (http_closed(skb_info)) {
+        log_debug("http_batch_enqueue() last_seen %d   %d -> %d\n", http->response_last_seen, http_stack->tup.sport,http_stack->tup.dport);
         http_batch_enqueue(http);
         bpf_map_delete_elem(&http_in_flight, &http_stack->tup);
     }

@@ -307,6 +307,10 @@ func (t *tracer) GetConnections(buffer *network.ConnectionBuffer, filter func(*n
 	entries := t.conns.Iterate()
 	for entries.Next(unsafe.Pointer(key), unsafe.Pointer(stats)) {
 		populateConnStats(conn, key, stats)
+		c := conn
+		if c.DPort == 443 || c.SPort == 443 {
+			log.Debugf("===getcnx=== %d -> %d pid %d %v\n", c.SPort, c.DPort, c.Pid, c.SPortIsEphemeral)
+		}
 
 		isTCP := conn.Type == network.TCP
 		switch conn.Family {
