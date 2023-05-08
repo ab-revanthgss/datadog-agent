@@ -321,7 +321,24 @@ func (o *sslProgram) Stop() {
 }
 
 func addHooks(m *errtelemetry.Manager, probes []manager.ProbesSelector) func(pathIdentifier, string, string) error {
-	return func(id pathIdentifier, root string, path string) error {
+	symbolsSet := make(common.StringSet, 0)
+	symbolsSetBestEffort := make(common.StringSet, 0)
+	for _, singleProbe := range probes {
+		_, isBestEffort := singleProbe.(*manager.BestEffort)
+		for _, selector := range singleProbe.GetProbesIdentificationPairList() {
+			_, symbol, ok := strings.Cut(selector.EBPFFuncName, "__")
+			if !ok {
+				continue
+			}
+			if isBestEffort {
+				symbolsSetBestEffort[symbol] = struct{}{}
+			} else {
+				symbolsSet[symbol] = struct{}{}
+			}
+		}
+	}
+
+	return func(id pathIdentifier, root, path string) error {
 		uid := getUID(id)
 
 		elfFile, err := elf.Open(root + path)
@@ -330,22 +347,6 @@ func addHooks(m *errtelemetry.Manager, probes []manager.ProbesSelector) func(pat
 		}
 		defer elfFile.Close()
 
-		symbolsSet := make(common.StringSet, 0)
-		symbolsSetBestEffort := make(common.StringSet, 0)
-		for _, singleProbe := range probes {
-			_, isBestEffort := singleProbe.(*manager.BestEffort)
-			for _, selector := range singleProbe.GetProbesIdentificationPairList() {
-				_, symbol, ok := strings.Cut(selector.EBPFFuncName, "__")
-				if !ok {
-					continue
-				}
-				if isBestEffort {
-					symbolsSetBestEffort[symbol] = struct{}{}
-				} else {
-					symbolsSet[symbol] = struct{}{}
-				}
-			}
-		}
 		symbolMap, err := bininspect.GetAllSymbolsByName(elfFile, symbolsSet)
 		if err != nil {
 			return err

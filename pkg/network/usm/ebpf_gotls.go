@@ -105,7 +105,7 @@ var structFieldsLookupFunctions = map[bininspect.FieldIdentifier]bininspect.Stru
 	bininspect.StructOffsetPollFdSysfd: lookup.GetFD_SysfdOffset,
 }
 
-type pid = uint32
+type pid = int
 
 type binaryID = gotls.TlsBinaryId
 
@@ -228,19 +228,17 @@ func (p *GoTLSProgram) Start() {
 	}
 
 	mon := monitor.GetProcessMonitor()
-	p.procMonitor.cleanupExec, err = mon.Subscribe(&monitor.ProcessCallback{
-		Event:    monitor.EXEC,
-		Metadata: monitor.ANY,
-		Callback: p.handleProcessStart,
+	p.procMonitor.cleanupExec, err = mon.SubscribeExec(&monitor.ProcessCallback{
+		FilterType: monitor.ANY,
+		Callback:   p.handleProcessStart,
 	})
 	if err != nil {
 		log.Errorf("failed to subscribe Exec process monitor error: %s", err)
 		return
 	}
-	p.procMonitor.cleanupExit, err = mon.Subscribe(&monitor.ProcessCallback{
-		Event:    monitor.EXIT,
-		Metadata: monitor.ANY,
-		Callback: p.handleProcessStop,
+	p.procMonitor.cleanupExit, err = mon.SubscribeExit(&monitor.ProcessCallback{
+		FilterType: monitor.ANY,
+		Callback:   p.handleProcessStop,
 	})
 	if err != nil {
 		log.Errorf("failed to subscribe Exit process monitor error: %s", err)
