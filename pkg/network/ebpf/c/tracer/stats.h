@@ -138,12 +138,11 @@ static __always_inline void update_conn_stats(conn_tuple_t *t, size_t sent_bytes
     if (val->protocol == PROTOCOL_UNKNOWN) {
         protocol_t protocol = get_protocol(t);
         if (protocol != PROTOCOL_UNKNOWN) {
-            log_debug("[update_conn_stats]: A connection was classified with protocol %d %d -> %d\n", protocol, t->sport, t->dport);
+            log_debug("[update_conn_stats]: A connection was classified with protocol %d\n", protocol);
             val->protocol = protocol;
         }
     }
     if (is_tls_connection(t)) {
-        log_debug("[update_conn_stats]: tls tag %d %d\n", t->sport, t->dport);
         val->conn_tags |= CONN_TLS;
     }
 

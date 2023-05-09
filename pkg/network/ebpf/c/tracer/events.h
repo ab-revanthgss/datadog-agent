@@ -18,7 +18,6 @@
 #endif
 
 static __always_inline void clean_protocol_classification(conn_tuple_t *tup) {
-    log_debug("clean_protocol_classification %d -> %d\n",tup->sport,tup->dport);
     conn_tuple_t conn_tuple = *tup;
     conn_tuple.pid = 0;
     conn_tuple.netns = 0;
@@ -73,7 +72,6 @@ static __always_inline void cleanup_conn(conn_tuple_t *tup, struct sock *sk) {
 
     if (cst) {
         conn.conn_stats = *cst;
-        log_debug("=== delete conn stats %d -> %d\n", conn.tup.sport, conn.tup.dport);
         bpf_map_delete_elem(&conn_stats, &(conn.tup));
     } else {
         // we don't have any stats for the connection,
