@@ -180,6 +180,15 @@ int socket__http_filter(struct __sk_buff* skb) {
         return 0;
     }
 
+    // Currently TLS is marked by a connection tag rather than the protocol stack,
+    // but as we add support for multiple protocols in the stack, we should revisit this implementation,
+    // and unify it with the following if clause.
+    //
+    // The connection is TLS encrypted, thus we cannot classify the protocol using socket filter.
+    if (is_tls_connection_cached(&http.tup)) {
+        return 0;
+    }
+
     if (!http_allow_packet(&http, skb, &skb_info)) {
         return 0;
     }
