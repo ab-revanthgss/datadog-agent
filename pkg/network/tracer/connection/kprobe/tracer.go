@@ -195,10 +195,6 @@ func loadTracerFromAsset(buf bytecode.AssetReader, runtimeTracer, coreTracer boo
 		undefinedProbes = append(undefinedProbes, protocolClassificationTailCalls[0].ProbeIdentificationPair)
 		mgrOpts.TailCallRouter = append(mgrOpts.TailCallRouter, protocolClassificationTailCalls...)
 	} else {
-		fmt.Println("================= classificationSupported not supported")
-		fmt.Println("================= classificationSupported not supported")
-		fmt.Println("================= classificationSupported not supported")
-		fmt.Println("================= classificationSupported not supported")
 		// Kernels < 4.7.0 do not know about the per-cpu array map used
 		// in classification, preventing the program to load even though
 		// we won't use it. We change the type to a simple array map to
