@@ -308,7 +308,7 @@ func (r *soRegistry) unregister(pid uint32) {
 	delete(r.byPID, pid)
 }
 
-// Register a ELF library root/libPath as be used by the pid
+// register a ELF library root/libPath as be used by the pid
 // Only one registration will be done per ELF (system wide)
 func (r *soRegistry) register(root, libPath string, pid uint32, rule soRule) {
 	hostLibPath := root + libPath
