@@ -104,7 +104,7 @@ type soWatcher struct {
 type pathIdentifierSet = map[pathIdentifier]struct{}
 
 type soRegistry struct {
-	m     sync.Mutex
+	m     sync.RWMutex
 	byID  map[pathIdentifier]*soRegistration
 	byPID map[uint32]pathIdentifierSet
 
