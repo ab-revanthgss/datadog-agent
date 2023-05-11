@@ -138,7 +138,6 @@ func (fh *FieldHandlers) ResolveContainerCreatedAt(ev *model.Event, e *model.Con
 		}
 
 		if containerID != "" {
-			// if entry, _ := fh.ResolveProcessCacheEntry(ev); entry != nil && entry.ContainerID != "" {
 			if cgroup, _ := fh.resolvers.CGroupResolver.GetWorkload(containerID); cgroup != nil {
 				e.CreatedAt = cgroup.CreationTime
 			}
