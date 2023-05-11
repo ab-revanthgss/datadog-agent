@@ -129,8 +129,17 @@ func (fh *FieldHandlers) ResolveContainerID(ev *model.Event, e *model.ContainerC
 // ResolveContainerCreatedAt resolves the container creation time of the event
 func (fh *FieldHandlers) ResolveContainerCreatedAt(ev *model.Event, e *model.ContainerContext) int {
 	if e.CreatedAt == 0 {
-		if entry, _ := fh.ResolveProcessCacheEntry(ev); entry != nil && entry.ContainerID != "" {
-			if cgroup, _ := fh.resolvers.CGroupResolver.GetWorkload(entry.ContainerID); cgroup != nil {
+		containerID := e.ID
+		if containerID == "" {
+			// TODO(lebauce): is it even required ?
+			if entry, _ := fh.ResolveProcessCacheEntry(ev); entry != nil {
+				containerID = entry.ContainerID
+			}
+		}
+
+		if containerID != "" {
+			// if entry, _ := fh.ResolveProcessCacheEntry(ev); entry != nil && entry.ContainerID != "" {
+			if cgroup, _ := fh.resolvers.CGroupResolver.GetWorkload(containerID); cgroup != nil {
 				e.CreatedAt = cgroup.CreationTime
 			}
 		}
