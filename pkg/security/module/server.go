@@ -50,7 +50,7 @@ type pendingMsg struct {
 type APIServer struct {
 	api.UnimplementedSecurityModuleServer
 	msgs              chan *api.SecurityEventMessage
-	directReporter    *reporter.DirectReporter
+	directReporter    *reporter.RuntimeReporter
 	activityDumps     chan *api.ActivityDumpStreamMessage
 	expiredEventsLock sync.RWMutex
 	expiredEvents     map[rules.RuleID]*atomic.Int64
@@ -555,6 +555,6 @@ func NewAPIServer(cfg *config.RuntimeSecurityConfig, probe *sprobe.Probe, client
 	return es
 }
 
-func newDirectReporter() *reporter.DirectReporter {
+func newDirectReporter() *reporter.RuntimeReporter {
 	return nil
 }
