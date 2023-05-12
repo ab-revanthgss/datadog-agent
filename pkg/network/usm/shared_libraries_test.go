@@ -514,6 +514,11 @@ func initEBPFProgram(t *testing.T) *ddebpf.PerfHandler {
 				MaxEntries: 1,
 				EditorFlag: manager.EditMaxEntries,
 			},
+			probes.TLSConnectionMap: {
+				Type:       ebpf.Hash,
+				MaxEntries: 1,
+				EditorFlag: manager.EditMaxEntries,
+			},
 			probes.ConnectionProtocolMap: {
 				Type:       ebpf.Hash,
 				MaxEntries: 1,
