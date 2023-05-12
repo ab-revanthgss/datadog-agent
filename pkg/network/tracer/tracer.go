@@ -843,6 +843,13 @@ func newUSMMonitor(c *config.Config, tracer connection.Tracer, bpfTelemetry *net
 	sockFDMap := tracer.GetMap(probes.SockByPidFDMap)
 	connectionProtocolMap := tracer.GetMap(probes.ConnectionProtocolMap)
 
+	if tracer.Type() != connection.TracerTypeKProbeRuntimeCompiled {
+		if c.EnableGoTLSSupport {
+			log.Warnf("disabling USM goTLS support as goTLS require kprobe runtime compilation")
+			c.EnableGoTLSSupport = false
+		}
+	}
+
 	monitor, err := usm.NewMonitor(c, offsets, connectionProtocolMap, sockFDMap, bpfTelemetry)
 	if err != nil {
 		log.Error(err)
@@ -861,5 +868,9 @@ func newUSMMonitor(c *config.Config, tracer connection.Tracer, bpfTelemetry *net
 	if c.EnableKafkaMonitoring {
 		log.Info("kafka monitoring enabled")
 	}
+	if c.EnableGoTLSSupport {
+		log.Info("goTLS monitoring enabled")
+	}
+
 	return monitor
 }
