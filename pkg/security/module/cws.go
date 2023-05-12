@@ -399,6 +399,10 @@ func (c *CWSConsumer) Stop() {
 	signal.Stop(c.sigupChan)
 	close(c.sigupChan)
 
+	if c.apiServer != nil {
+		c.apiServer.Stop()
+	}
+
 	for _, provider := range c.policyProviders {
 		_ = provider.Close()
 	}
