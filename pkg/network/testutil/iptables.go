@@ -19,7 +19,7 @@ import (
 
 // IptablesSave saves the current iptables state to a file
 // and returns its path
-func IptablesSave(tb testing.TB) []byte {
+func IptablesSave(tb testing.TB) {
 	cmd := exec.Command("iptables-save")
 	state, err := cmd.Output()
 	require.NoError(tb, err)
@@ -33,11 +33,14 @@ func IptablesSave(tb testing.TB) []byte {
 	cmd = exec.Command("iptables-save", "-t", "nat")
 	natState, err := cmd.Output()
 	require.NoError(tb, err)
-	return append(state, natState...)
+	fullState := append(state, natState...)
+	tb.Cleanup(func() {
+		iptablesRestore(tb, fullState)
+	})
 }
 
-// IptablesRestore restores iptables state from a file
-func IptablesRestore(tb testing.TB, state []byte) {
+// iptablesRestore restores iptables state from a file
+func iptablesRestore(tb testing.TB, state []byte) {
 	cmd := exec.Command("iptables-restore", "--counters")
 	cmd.Stdin = bytes.NewReader(state)
 	assert.NoError(tb, cmd.Run())
@@ -45,10 +48,10 @@ func IptablesRestore(tb testing.TB, state []byte) {
 
 // Ip6tablesSave saves the current iptables state to a file
 // and returns its path
-func Ip6tablesSave(t *testing.T) []byte {
+func Ip6tablesSave(tb testing.TB) {
 	cmd := exec.Command("ip6tables-save")
 	state, err := cmd.Output()
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	// make sure the nat table is saved,
 	// on some machines on startup, with the
@@ -58,13 +61,16 @@ func Ip6tablesSave(t *testing.T) []byte {
 	// rules added by tests
 	cmd = exec.Command("ip6tables-save", "-t", "nat")
 	natState, err := cmd.Output()
-	require.NoError(t, err)
-	return append(state, natState...)
+	require.NoError(tb, err)
+	fullState := append(state, natState...)
+	tb.Cleanup(func() {
+		ip6tablesRestore(tb, fullState)
+	})
 }
 
-// Ip6tablesRestore restores iptables state from a file
-func Ip6tablesRestore(t *testing.T, state []byte) {
+// ip6tablesRestore restores iptables state from a file
+func ip6tablesRestore(tb testing.TB, state []byte) {
 	cmd := exec.Command("ip6tables-restore", "--counters")
 	cmd.Stdin = bytes.NewReader(state)
-	assert.NoError(t, cmd.Run())
+	assert.NoError(tb, cmd.Run())
 }
