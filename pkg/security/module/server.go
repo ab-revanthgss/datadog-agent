@@ -293,6 +293,8 @@ func (a *APIServer) dequeue(now time.Time, cb func(msg *pendingMsg)) {
 	}
 }
 
+const SEND_DIRECTLY = true
+
 func (a *APIServer) start(ctx context.Context) {
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
@@ -324,7 +326,11 @@ func (a *APIServer) start(ctx context.Context) {
 					Tags:    msg.tags,
 				}
 
-				a.sendToSecurityAgent(m)
+				if SEND_DIRECTLY {
+					a.sendDirectly(m)
+				} else {
+					a.sendToSecurityAgent(m)
+				}
 			})
 		case <-ctx.Done():
 			return
@@ -351,6 +357,10 @@ func (a *APIServer) sendToSecurityAgent(m *api.SecurityEventMessage) {
 		a.expireEvent(oldestMsg)
 		break
 	}
+}
+
+func (a *APIServer) sendDirectly(m *api.SecurityEventMessage) {
+	fmt.Println(m)
 }
 
 // Start the api server, starts to consume the msg queue
